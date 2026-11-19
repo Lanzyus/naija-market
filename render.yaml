@@ -1,0 +1,36 @@
+# Put this file at the ROOT of your repo (next to the "backend" folder).
+# Render: New + > Blueprint > pick your repo.
+
+services:
+  - type: web
+    name: naija-market-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn backend.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: naija-market-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      # Fill these in the Render dashboard (sync: false = not stored in the file)
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+      - key: FLUTTERWAVE_PUBLIC_KEY
+        sync: false
+      - key: FLUTTERWAVE_SECRET_KEY
+        sync: false
+      # Your frontend address once it is deployed, e.g. https://naija-market.vercel.app
+      - key: FRONTEND_URL
+        sync: false
+
+databases:
+  - name: naija-market-db
+    plan: free
