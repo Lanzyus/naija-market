@@ -19,9 +19,9 @@ const UserProfilePage = () => {
           </span>
 
           <h1>
-            Your Sensational
+            Your  Naija Market
             <br />
-            <em>Home Journey</em>
+            <em> A Taste Of Home </em>
           </h1>
 
           <p>

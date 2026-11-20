@@ -842,6 +842,71 @@ def verify_paystack_payment(request, reference):
 
 
 
+
+# ==================================================
+# backend/shop_app/views.py  -  save the customer's details on every payment
+#
+# 1) Paste this helper ABOVE initialize_paystack_payment (near the top of views.py is fine):
+# ==================================================
+def customer_snapshot(request):
+    """Customer + delivery details for a new Transaction.
+
+    Prefers what the checkout form sent, then falls back to the customer's profile.
+    Saved on the Transaction so the order/invoice keeps them even if the profile
+    changes later.
+    """
+    user = request.user
+    data = request.data
+
+    def pick(key, *profile_attrs):
+        value = (data.get(key) or "").strip() if hasattr(data.get(key) or "", "strip") else ""
+        if value:
+            return value
+        for attr in profile_attrs or (key,):
+            value = getattr(user, attr, "") or ""
+            if value:
+                return value
+        return ""
+
+    return {
+        "full_name": pick("full_name") or user.get_full_name() or user.username,
+        "email": pick("email"),
+        "phone": pick("phone", "phone", "phone_number"),
+        "country": pick("country"),
+        "state": pick("state"),
+        "city": pick("city"),
+        "shipping_address": pick("shipping_address", "address", "shipping_address"),
+    }
+
+
+# ==================================================
+# 2) In initialize_paystack_payment, change
+#
+#        Transaction.objects.create(
+#            ref=reference,
+#            user=request.user,
+#            cart=cart,
+#            amount=amount,
+#            payment_method="paystack",
+#            status="pending"
+#        )
+#
+#    to:
+#
+#        Transaction.objects.create(
+#            ref=reference,
+#            user=request.user,
+#            cart=cart,
+#            amount=amount,
+#            payment_method="paystack",
+#            status="pending",
+#            **customer_snapshot(request),
+#        )
+#
+# 3) Do the same in initiate_payment (Flutterwave): add  **customer_snapshot(request),
+#    as the last argument of its Transaction.objects.create(...)  call.
+# ==================================================
+
 # ==================================================
 # initialize_paystack_payment
 # ==================================================

@@ -5,6 +5,8 @@ import api from "../../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
+import useProfile from "../../hooks/useProfile";
+import { resolveOrderDetails } from "../../utils/orderDetails";
 
 import logo from "../../assets/image/Sensational.png";
 
@@ -14,7 +16,9 @@ DJANGO BACKEND URL
 =========================================================
 */
 
-const BACKEND_URL = "http://127.0.0.1:8001";
+const BACKEND_URL = (
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8001"
+).replace(/\/+$/, "");
 
 /*
 =========================================================
@@ -228,6 +232,9 @@ const OrdersPage = () => {
   const [error, setError] =
     useState("");
 
+  // Customer details: from the order, else from the signed-in customer's profile.
+  const { profile, currentUser } = useProfile();
+
   /*
   =======================================================
   FETCH ORDERS
@@ -436,6 +443,28 @@ const OrdersPage = () => {
         );
 
         setSelectedOrder(orderId);
+
+        // The list view omits address, VAT, delivery fee... so also load the full order in the background.
+        api
+          .get(`/orders/${orderId}/`)
+          .then((res) => {
+            const full = res.data || {};
+            setOrderDetails((previous) => {
+              const current = previous[orderId] || existingOrder;
+              const fullItems = getOrderItems(full);
+              return {
+                ...previous,
+                [orderId]: {
+                  ...current,
+                  ...full,
+                  orderitems: fullItems.length > 0 ? fullItems : getOrderItems(current),
+                  items: fullItems.length > 0 ? fullItems : getOrderItems(current),
+                },
+              };
+            });
+          })
+          .catch(() => {});
+
 
         return;
       }
@@ -656,7 +685,7 @@ const OrdersPage = () => {
       doc.setFontSize(22);
 
       doc.text(
-        "NaijaOpenMarket",
+        "NaijaMarket",
         45,
         18
       );
@@ -778,9 +807,14 @@ const OrdersPage = () => {
 
       doc.text(
         `Address: ${
-          order.shipping_address ||
-          order.address ||
-          ""
+          [
+            order.shipping_address || order.address,
+            order.city,
+            order.state,
+            order.country,
+          ]
+            .filter(Boolean)
+            .join(", ")
         }`,
         14,
         111
@@ -907,13 +941,13 @@ const OrdersPage = () => {
       doc.setFontSize(10);
 
       doc.text(
-        "Thank you for shopping with NaijaOpenMarket.",
+        "Thank you for shopping with NaijaMarket.",
         14,
         finalY + 45
       );
 
       doc.text(
-        "support@naijaopenmarket.com",
+        "support@naijamarket.com",
         14,
         finalY + 52
       );
@@ -1152,6 +1186,16 @@ const OrdersPage = () => {
                   order.id
                 ] || order;
 
+              // Customer + shipping info (never empty if the profile has it)
+              const view = resolveOrderDetails(
+                { ...order, ...details },
+                profile,
+                currentUser
+              );
+              const infoMissing =
+                view.source.customer === "none" ||
+                view.source.shipping === "none";
+
               const items =
                 getOrderItems(
                   details
@@ -1378,102 +1422,87 @@ const OrdersPage = () => {
 
                             <div className="row g-4 mb-4">
 
-                              {/* DELIVERY */}
-
+                              {/* CUSTOMER & DELIVERY */}
                               <div className="col-lg-6">
-
                                 <div
                                   className="card border-0 h-100 shadow-sm"
-                                  style={{
-                                    borderRadius:
-                                      "16px",
-                                  }}
+                                  style={{ borderRadius: "16px" }}
                                 >
-
                                   <div className="card-body p-4">
-
                                     <div
                                       className="small text-muted text-uppercase fw-semibold mb-2"
-                                      style={{
-                                        letterSpacing:
-                                          "0.12em",
-                                      }}
+                                      style={{ letterSpacing: "0.12em" }}
                                     >
-                                      Delivery
+                                      Customer &amp; Delivery
                                     </div>
 
                                     <h5 className="fw-bold mb-4">
-                                      Shipping
-                                      Information
+                                      Customer Information
                                     </h5>
 
                                     <div className="mb-3">
-
-                                      <div className="small text-muted">
-                                        Address
+                                      <div className="small text-muted">Full Name</div>
+                                      <div className="fw-medium">
+                                        {view.customer.name || "Not provided"}
                                       </div>
+                                    </div>
 
-                                      <div
-                                        className="fw-medium"
-                                        style={{
-                                          whiteSpace:
-                                            "pre-line",
-                                        }}
-                                      >
-                                        {order.shipping_address ||
-                                          order.address ||
-                                          "Not provided"}
+                                    <div className="mb-3">
+                                      <div className="small text-muted">Email</div>
+                                      <div className="fw-medium" style={{ wordBreak: "break-word" }}>
+                                        {view.customer.email || "Not provided"}
                                       </div>
+                                    </div>
 
+                                    <div className="mb-3">
+                                      <div className="small text-muted">Phone</div>
+                                      <div className="fw-medium">
+                                        {view.customer.phone || "Not provided"}
+                                      </div>
+                                    </div>
+
+                                    <hr className="my-4" />
+
+                                    <h5 className="fw-bold mb-3" style={{ fontSize: "1.1rem" }}>
+                                      Shipping Information
+                                    </h5>
+
+                                    <div className="mb-3">
+                                      <div className="small text-muted">Address</div>
+                                      <div className="fw-medium" style={{ whiteSpace: "pre-line" }}>
+                                        {view.shipping.address || "Not provided"}
+                                      </div>
                                     </div>
 
                                     <div className="row g-3">
-
                                       <div className="col-4">
-
-                                        <div className="small text-muted">
-                                          City
-                                        </div>
-
-                                        <div className="fw-medium">
-                                          {order.city ||
-                                            "—"}
-                                        </div>
-
+                                        <div className="small text-muted">City</div>
+                                        <div className="fw-medium">{view.shipping.city || "—"}</div>
                                       </div>
-
                                       <div className="col-4">
-
-                                        <div className="small text-muted">
-                                          State
-                                        </div>
-
-                                        <div className="fw-medium">
-                                          {order.state ||
-                                            "—"}
-                                        </div>
-
+                                        <div className="small text-muted">State</div>
+                                        <div className="fw-medium">{view.shipping.state || "—"}</div>
                                       </div>
-
                                       <div className="col-4">
-
-                                        <div className="small text-muted">
-                                          Country
-                                        </div>
-
-                                        <div className="fw-medium">
-                                          {order.country ||
-                                            "—"}
-                                        </div>
-
+                                        <div className="small text-muted">Country</div>
+                                        <div className="fw-medium">{view.shipping.country || "—"}</div>
                                       </div>
-
+                                      {view.shipping.postcode && (
+                                        <div className="col-4">
+                                          <div className="small text-muted">Postcode</div>
+                                          <div className="fw-medium">{view.shipping.postcode}</div>
+                                        </div>
+                                      )}
                                     </div>
 
+                                    {infoMissing && (
+                                      <div className="alert alert-warning py-2 px-3 small mt-4 mb-0">
+                                        Some details are missing.{" "}
+                                        <Link to="/profile/edit">Update your profile</Link>
+                                      </div>
+                                    )}
                                   </div>
-
                                 </div>
-
                               </div>
 
                               {/* PAYMENT */}
@@ -2045,7 +2074,7 @@ const OrdersPage = () => {
                                 className="btn btn-dark px-4"
                                 onClick={() =>
                                   generateInvoicePDF(
-                                    order,
+                                    { ...order, ...view.flat },
                                     details
                                   )
                                 }

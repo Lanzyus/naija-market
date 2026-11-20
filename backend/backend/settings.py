@@ -178,6 +178,14 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Product images: store on Cloudinary when CLOUDINARY_URL is set (production).
+# Locally, with no CLOUDINARY_URL, uploads still go to MEDIA_ROOT as before.
+if os.environ.get("CLOUDINARY_URL"):
+    _i = INSTALLED_APPS.index("django.contrib.staticfiles")
+    INSTALLED_APPS.insert(_i, "cloudinary_storage")  # must come before staticfiles
+    INSTALLED_APPS.append("cloudinary")
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
 
 
 # Default primary key field type

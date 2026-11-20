@@ -113,6 +113,11 @@ const fetchCartStats = useCallback(async () => {
           element={<InvoicePage />}
         />
 
+        <Route
+          path="/invoice/:id"
+          element={<InvoicePage />}
+        />
+
           <Route path="login" element={<LoginPage />} />
 
           <Route path="about" element={<About />} />
