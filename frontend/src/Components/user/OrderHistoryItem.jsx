@@ -1,7 +1,8 @@
 import React from "react";
 import styles from "./OrderHistoryItem.module.css";
 
-const API_BASE_URL = "http://127.0.0.1:8001";
+import { BASE_URL } from "../../api";
+const API_BASE_URL = BASE_URL;
 
 // ============================================================
 // BUILD IMAGE URL

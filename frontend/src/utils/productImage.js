@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8001";
+import { BASE_URL as API_URL } from "../api";
 
 export const getProductImage = (product) => {
   if (!product) {

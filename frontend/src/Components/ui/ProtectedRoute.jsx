@@ -71,7 +71,7 @@
 
 
 import React, { useState, useEffect } from "react";
-import api from "../../api";
+import api, { BASE_URL } from "../../api";
 import { jwtDecode } from "jwt-decode";
 import Spinner from "./Spinner";
 import axios from "axios";
@@ -94,7 +94,7 @@ const ProtectedRoute = ({ children }) => {
     try {
      
       const res = await axios.post(
-        "http://127.0.0.1:8001/token/refresh/",
+        `${BASE_URL}/token/refresh/`,
         {
           refresh,
         }

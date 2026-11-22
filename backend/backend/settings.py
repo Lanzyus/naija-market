@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 from datetime import timedelta
 from decouple import config
 
+
+import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,9 +30,9 @@ EMAIL_PORT = 587
 
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = "yourgmail@gmail.com"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "yourgmail@gmail.com")
 
-EMAIL_HOST_PASSWORD = "gmail-app-password"
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "gmail-app-password")
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
@@ -111,17 +115,37 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 # Database
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME", default=""),
-        "USER": config("DB_USER", default=""),
-        "PASSWORD": config("DB_PASSWORD", default=""),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="5432"),
-    }
-}
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": config("DB_NAME", default=""),
+#         "USER": config("DB_USER", default=""),
+#         "PASSWORD": config("DB_PASSWORD", default=""),
+#         "HOST": config("DB_HOST", default="localhost"),
+#         "PORT": config("DB_PORT", default="5432"),
+#     }
+# }
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
+elif DEBUG:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        "DATABASE_URL is missing. Configure PostgreSQL on Render."
+    )
 
 # DATABASES = {
 #     'default': {
@@ -170,7 +194,13 @@ USE_TZ = True
 
 # Static files
 
-STATIC_URL = 'static/'
+# STATIC_URL = 'static/'
+
+STATIC_URL = "/static/"
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 # Media files
@@ -268,7 +298,13 @@ if os.environ.get("RENDER"):
     if _frontend:
         FRONTEND_URL = _frontend
         CORS_ALLOW_ALL_ORIGINS = False
-        CORS_ALLOWED_ORIGINS = [_frontend]
+        # The last three origins are the Capacitor iOS/Android app shells.
+        CORS_ALLOWED_ORIGINS = [
+            _frontend,
+            "https://localhost",
+            "http://localhost",
+            "capacitor://localhost",
+        ]
         CSRF_TRUSTED_ORIGINS = [
             _frontend,
             f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')}",

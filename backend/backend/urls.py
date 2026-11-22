@@ -87,6 +87,20 @@ if settings.DEBUG:
         settings.MEDIA_URL,
         document_root=settings.MEDIA_ROOT
     )
+else:
+    # Production: DEBUG is off, so static() serves nothing. Serve uploads through
+    # Django so product images show up. On Render's free plan the disk is wiped on
+    # every redeploy, so move uploads to Cloudinary/S3 before real launch (see DEPLOY.md).
+    from django.urls import re_path
+    from django.views.static import serve as _serve_media
+
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            _serve_media,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+    ]
 
 
 

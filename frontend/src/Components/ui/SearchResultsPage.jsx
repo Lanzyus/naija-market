@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import api from "../../api";
+import api, { BASE_URL } from "../../api";
 import Spinner from "./Spinner";
 import "./SearchResultsPage.css";
 
@@ -89,7 +89,7 @@ const SearchResultsPage = () => {
                   <img
                     src={
                       product?.media?.[0]?.file
-                        ? `http://127.0.0.1:8001${product.media[0].file}`
+                        ? `${BASE_URL}${product.media[0].file}`
                         : "/placeholder.jpg"
                     }
                     alt={product.name}
