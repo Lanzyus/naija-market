@@ -272,6 +272,7 @@ FLUTTERWAVE_ENCRYPTION_KEY = config(
 )
 
 
+
 # ==================================================
 # RENDER / PRODUCTION SETTINGS
 # Only active on Render (Render sets the RENDER env var).
@@ -283,13 +284,11 @@ if os.environ.get("RENDER"):
     SECRET_KEY = os.environ["SECRET_KEY"]
 
     # --- Hosts ---
+    _render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
     ALLOWED_HOSTS = [
-        host
-        for host in [
-            os.environ.get("RENDER_EXTERNAL_HOSTNAME"),
-            *os.environ.get("EXTRA_ALLOWED_HOSTS", "").split(","),
-        ]
-        if host and host.strip()
+        h.strip()
+        for h in [_render_host, *os.environ.get("EXTRA_ALLOWED_HOSTS", "").split(",")]
+        if h and h.strip()
     ]
 
     # --- Frontend (CORS / CSRF) ---
@@ -305,10 +304,9 @@ if os.environ.get("RENDER"):
             "http://localhost",
             "capacitor://localhost",
         ]
-        CSRF_TRUSTED_ORIGINS = [
-            _frontend,
-            f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')}",
-        ]
+        CSRF_TRUSTED_ORIGINS = [_frontend]
+        if _render_host:
+            CSRF_TRUSTED_ORIGINS.append(f"https://{_render_host}")
 
     # --- Database (Postgres from Render) ---
     DATABASES = {
@@ -320,25 +318,106 @@ if os.environ.get("RENDER"):
     STATIC_ROOT = BASE_DIR / "staticfiles"
 
     if "whitenoise.middleware.WhiteNoiseMiddleware" not in MIDDLEWARE:
-        MIDDLEWARE.insert(2, "whitenoise.middleware.WhiteNoiseMiddleware")
+        _sec = "django.middleware.security.SecurityMiddleware"
+        _idx = MIDDLEWARE.index(_sec) + 1 if _sec in MIDDLEWARE else 0
+        MIDDLEWARE.insert(_idx, "whitenoise.middleware.WhiteNoiseMiddleware")
 
+    # --- Media (product images) on Cloudinary ---
+    CLOUDINARY_STORAGE = {
+        "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
+        "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
+        "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET"),
+    }
+
+    # Single STORAGES definition (non-manifest static storage avoids the
+    # missing 'admin/img/icon-debug.svg' collectstatic failure).
     STORAGES = {
         "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
         },
     }
 
     # --- HTTPS behind Render's proxy ---
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO",
 
-    # NOTE: uploaded product images (MEDIA_ROOT) live on Render's temporary
-    # disk and are wiped on redeploy. For real use, move media to Cloudinary/S3.
+
+# ==================================================
+# RENDER / PRODUCTION SETTINGS
+# Only active on Render (Render sets the RENDER env var).
+# ==================================================
+# if os.environ.get("RENDER"):
+#     import dj_database_url
+
+#     DEBUG = False
+#     SECRET_KEY = os.environ["SECRET_KEY"]
+
+#     # --- Hosts ---
+#     ALLOWED_HOSTS = [
+#         host
+#         for host in [
+#             os.environ.get("RENDER_EXTERNAL_HOSTNAME"),
+#             *os.environ.get("EXTRA_ALLOWED_HOSTS", "").split(","),
+#         ]
+#         if host and host.strip()
+#     ]
+
+#     # --- Frontend (CORS / CSRF) ---
+#     _frontend = os.environ.get("FRONTEND_URL", "").rstrip("/")
+
+#     if _frontend:
+#         FRONTEND_URL = _frontend
+#         CORS_ALLOW_ALL_ORIGINS = False
+#         # The last three origins are the Capacitor iOS/Android app shells.
+#         CORS_ALLOWED_ORIGINS = [
+#             _frontend,
+#             "https://localhost",
+#             "http://localhost",
+#             "capacitor://localhost",
+#         ]
+#         CSRF_TRUSTED_ORIGINS = [
+#             _frontend,
+#             f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')}",
+#         ]
+
+#     # --- Database (Postgres from Render) ---
+#     DATABASES = {
+#         "default": dj_database_url.config(conn_max_age=600)
+#     }
+
+#     # --- Static files (served by WhiteNoise) ---
+#     STATIC_URL = "/static/"
+#     STATIC_ROOT = BASE_DIR / "staticfiles"
+
+#     if "whitenoise.middleware.WhiteNoiseMiddleware" not in MIDDLEWARE:
+#         MIDDLEWARE.insert(2, "whitenoise.middleware.WhiteNoiseMiddleware")
+
+#     STORAGES = {
+#         "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+#         ...
+#     }
+#     # or the older form:
+#     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+#     STORAGES = {
+#         "default": {
+#             "BACKEND": "django.core.files.storage.FileSystemStorage",
+#         },
+#         "staticfiles": {
+#             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+#         },
+#     }
+
+#     # --- HTTPS behind Render's proxy ---
+#     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+#     SECURE_SSL_REDIRECT = True
+#     SESSION_COOKIE_SECURE = True
+#     CSRF_COOKIE_SECURE = True
+
+#     # NOTE: uploaded product images (MEDIA_ROOT) live on Render's temporary
+#     # disk and are wiped on redeploy. For real use, move media to Cloudinary/S3.
 
 
 
