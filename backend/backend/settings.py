@@ -191,9 +191,10 @@ USE_CLOUDINARY = all(
 )
 
 if USE_CLOUDINARY:
-    _i = INSTALLED_APPS.index("django.contrib.staticfiles")
-    INSTALLED_APPS.insert(_i, "cloudinary_storage")  # must come before staticfiles
-    INSTALLED_APPS.append("cloudinary")               # must come after staticfiles
+    # _i = INSTALLED_APPS.index("django.contrib.staticfiles")
+    # INSTALLED_APPS.insert(_i, "cloudinary_storage")  # must come before staticfiles
+    # INSTALLED_APPS.append("cloudinary")               # must come after staticfiles
+    INSTALLED_APPS += ["cloudinary_storage", "cloudinary"]
 
     CLOUDINARY_STORAGE = {
         "CLOUD_NAME": os.environ["CLOUDINARY_CLOUD_NAME"],
