@@ -341,7 +341,7 @@ if os.environ.get("RENDER"):
     }
 
     # --- HTTPS behind Render's proxy ---
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO",
+    # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO",
 
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
