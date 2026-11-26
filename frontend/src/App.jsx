@@ -229,27 +229,27 @@ export default App;
 //   }, []);
 
 // const fetchCartStats = useCallback(async () => {
-  //   const cart_code = localStorage.getItem("cart_code");
+//     const cart_code = localStorage.getItem("cart_code");
 
-  //   if (!cart_code) {
-  //     setNumCartItems(0);
-  //     return;
-  //   }
-  //   try {
-  //   const res = await api.get("/api/get_cart_stat/", {
-  //     params: { cart_code }
-  //   });
+//     if (!cart_code) {
+//       setNumCartItems(0);
+//       return;
+//     }
+//     try {
+//     const res = await api.get("/api/get_cart_stat/", {
+//       params: { cart_code }
+//     });
 
-  //   // const res = await api.get(
-  //   // `/get_cart_stat/?cart_code=${cart_code}`
-  //   // );
+//     // const res = await api.get(
+//     // `/get_cart_stat/?cart_code=${cart_code}`
+//     // );
   
-  //     setNumCartItems(res.data?.num_of_items || 0);
-  //   } catch (err) {
-  //     console.error("Cart stat error:", err);
-  //     setNumCartItems(0); // important fallback
-  //   }
-  // }, []);
+//       setNumCartItems(res.data?.num_of_items || 0);
+//     } catch (err) {
+//       console.error("Cart stat error:", err);
+//       setNumCartItems(0); // important fallback
+//     }
+//   }, []);
 
 
 //   useEffect(() => {

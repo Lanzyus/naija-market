@@ -13,6 +13,10 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+
+from rest_framework.decorators import api_view
+
+
 from reportlab.pdfgen import canvas
 
 from rest_framework import generics, status
@@ -1327,45 +1331,116 @@ class MyTokenObtainPairView(TokenObtainPairView):
 # PRODUCTS
 # ==================================================
 
-class ProductListView(generics.ListAPIView):
+# from django.db.models import Q
+# from rest_framework import generics
+# from rest_framework.decorators import api_view, permission_classes
+# from rest_framework.permissions import AllowAny
+# from rest_framework.response import Response
 
+# from .models import Product
+# from .serializers import ProductSerializer
+
+
+def active_products():
+    """Shared queryset so every product endpoint returns the same data."""
+    return (
+        Product.objects
+        .filter(is_active=True)
+        .select_related("category", "subcategory", "seller")
+        .prefetch_related("media", "variants", "reviews")
+        .order_by("-created_at")
+    )
+
+
+def apply_search(queryset, term):
+    if term:
+        queryset = queryset.filter(
+            Q(name__icontains=term)
+            | Q(description__icontains=term)
+            | Q(brand__icontains=term)
+        )
+    return queryset
+
+
+class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return (
-            Product.objects
-            .filter(is_active=True)
-            .select_related(
-                "category",
-                "subcategory",
-                "seller"
-            )
-            .prefetch_related(
-                "media",
-                "variants",
-                "reviews"
-            )
-            .order_by("-created_at")
-        )
+        return active_products()
 
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def search_products(request):
+    term = request.GET.get("q", "").strip()
+    queryset = apply_search(active_products(), term)
+    serializer = ProductSerializer(queryset, many=True, context={"request": request})
+    return Response(serializer.data)
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def products(request):
+    # Accept both ?search= and ?q= so either frontend call works
+    term = (request.GET.get("search") or request.GET.get("q") or "").strip()
+    queryset = apply_search(active_products(), term)
+    serializer = ProductSerializer(queryset, many=True, context={"request": request})
+    return Response(serializer.data)
 
-    queryset = Product.objects.filter(
-        is_active=True
-    )
 
-    # Search
-    search = request.GET.get("search")
-    if search:
-        queryset = queryset.filter(
-            Q(name__icontains=search) |
-            Q(description__icontains=search) |
-            Q(brand__icontains=search)
-        )
+
+# @api_view(["GET"])
+# def search_products(request):
+#     q = request.GET.get("q", "")
+#     products = Product.objects.filter(
+#         Q(name__icontains=q) | Q(description__icontains=q)
+#     )
+#     serializer = ProductSerializer(products, many=True, context={"request": request})
+#     return Response(serializer.data)
+
+
+# class ProductListView(generics.ListAPIView):
+
+#     serializer_class = ProductSerializer
+
+#     def get_queryset(self):
+#         return (
+#             Product.objects
+#             .filter(is_active=True)
+#             .select_related(
+#                 "category",
+#                 "subcategory",
+#                 "seller"
+#             )
+#             .prefetch_related(
+#                 "media",
+#                 "variants",
+#                 "reviews"
+#             )
+#             .order_by("-created_at")
+#         )
+
+
+# @api_view(["GET"])
+# @permission_classes([AllowAny])
+# def products(request):
+
+#     queryset = Product.objects.filter(
+#         is_active=True
+#     )
+
+#     # Search
+#     search = request.GET.get("search")
+#     if search:
+#         queryset = queryset.filter(
+#             Q(name__icontains=search) |
+#             Q(description__icontains=search) |
+#             Q(brand__icontains=search)
+#         )
+
+
+
 
     # Filters
     # category = request.GET.get("category")
