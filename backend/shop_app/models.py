@@ -325,7 +325,8 @@ class ProductMedia(models.Model):
         on_delete=models.CASCADE,
     )
     media_type = models.CharField(max_length=10, choices=MEDIA_CHOICES)
-    file = models.FileField(upload_to="product_media/")
+    # 255: Cloudinary stores the full path (media/product_videos/<name>_<id>)
+    file = models.FileField(upload_to="product_media/", max_length=255)
 
     # NOTE: probably a copy/paste from Product. Left in place because removing
     # it needs a migration. See notes in the chat before deleting.
