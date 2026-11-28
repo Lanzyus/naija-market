@@ -205,7 +205,7 @@ if USE_CLOUDINARY:
 STORAGES = {
     "default": {
         "BACKEND": (
-            "cloudinary_storage.storage.MediaCloudinaryStorage"
+            "backend.storage.ProductMediaStorage"  # images + videos
             if USE_CLOUDINARY
             else "django.core.files.storage.FileSystemStorage"
         ),
@@ -717,3 +717,19 @@ if os.environ.get("RENDER"):
 #     default=""
 # )
 
+
+# --------------------------------------------------
+# Logging: print the traceback of every 500 error in the Render logs
+# --------------------------------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
