@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import api, { BASE_URL } from "../../api";
+import api, { toMediaUrl } from "../../api";
 import Spinner from "./Spinner";
 import "./SearchResultsPage.css";
 
@@ -88,9 +88,9 @@ const SearchResultsPage = () => {
                 >
                   <img
                     src={
-                      product?.media?.[0]?.file
-                        ? `${BASE_URL}${product.media[0].file}`
-                        : "/placeholder.jpg"
+                      toMediaUrl(
+                        product?.primary_image || product?.media?.[0]?.file
+                      ) || "/placeholder.jpg"
                     }
                     alt={product.name}
                     className="card-img-top product-image"

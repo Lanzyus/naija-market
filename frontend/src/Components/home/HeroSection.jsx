@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Carousel from "react-bootstrap/Carousel";
-import api, { BASE_URL } from "../../api";
+import api, { toMediaUrl } from "../../api";
 
 const HeroSection = () => {
   const [banners, setBanners] = useState([]);
@@ -26,7 +26,7 @@ const HeroSection = () => {
         <Carousel.Item key={banner.id}>
 
           <img
-            src={`${BASE_URL}${banner.image}`}
+            src={toMediaUrl(banner.image)}
             alt={banner.title}
             className="d-block w-100"
             style={{

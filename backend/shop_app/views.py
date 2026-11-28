@@ -88,9 +88,6 @@ from .serializers import (
 )
 
 
-print(getattr(settings, "PAYSTACK_PUBLIC_KEY", "NOT FOUND"))
-print(settings.FLUTTERWAVE_PUBLIC_KEY)
-
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -2401,7 +2398,7 @@ def initiate_payment(request):
                 status=response.status_code,
             )
 
-        return Response(data)
+        return Response({**data, "tx_ref": tx_ref})
 
     except Exception as e:
         traceback.print_exc()

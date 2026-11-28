@@ -4,6 +4,14 @@ export const BASE_URL = (
   import.meta.env.VITE_API_URL || "http://127.0.0.1:8001"
 ).replace(/\/+$/, "");
 
+// The backend returns complete image addresses (absolute URLs, including
+// Cloudinary links). Only prefix BASE_URL when the value is a relative path.
+export const toMediaUrl = (value) => {
+  if (!value) return "";
+  if (/^(https?:)?\/\/|^data:|^blob:/i.test(value)) return value;
+  return `${BASE_URL}${value.startsWith("/") ? "" : "/"}${value}`;
+};
+
 const api = axios.create({
   baseURL: `${BASE_URL}/api`,
 });

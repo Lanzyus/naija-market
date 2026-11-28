@@ -1,5 +1,5 @@
 import React from "react";
-import { BASE_URL } from "../../api";
+import { toMediaUrl } from "../../api";
 
 const OrderItems = ({ item }) => {
   const product = item?.product;
@@ -9,9 +9,8 @@ const OrderItems = ({ item }) => {
       (media) => media?.is_primary
     ) || product?.media?.[0];
 
-  const imageUrl = primaryMedia?.file
-    ? `${BASE_URL}${primaryMedia.file}`
-    : "https://picsum.photos/100";
+  const imageUrl =
+    toMediaUrl(primaryMedia?.file) || "https://picsum.photos/100";
 
   return (
     <div
