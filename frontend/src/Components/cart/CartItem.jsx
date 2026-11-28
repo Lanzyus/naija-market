@@ -73,7 +73,8 @@ const CartItem = ({
   ========================================= */
 
   const unitPrice = Number(
-    product?.current_price ??
+    item?.unit_price ??
+      product?.current_price ??
       product?.price ??
       0
   );
@@ -279,6 +280,12 @@ const CartItem = ({
             <h3>
               {product.name}
             </h3>
+
+            {item?.product_type && (
+              <small className="text-muted">
+                Type: {item.product_type}
+              </small>
+            )}
 
           </div>
 

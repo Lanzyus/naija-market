@@ -388,6 +388,65 @@ class ProductQuestion(models.Model):
 # ==================================================
 # PRODUCT VARIANT
 # ==================================================
+class ProductType(models.Model):
+    """A purchasable option of a product (e.g. 35cl, 50cl, 1 Litre) with its own
+    price and stock."""
+
+    product = models.ForeignKey(
+        Product,
+        related_name="types",
+        on_delete=models.CASCADE,
+    )
+    name = models.CharField(max_length=100)
+    sku = models.CharField(max_length=100, blank=True, null=True)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    discounted_price = models.DecimalField(
+        max_digits=12, decimal_places=2, blank=True, null=True
+    )
+    cost_price = models.DecimalField(
+        max_digits=12, decimal_places=2, blank=True, null=True
+    )
+    stock_quantity = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("product", "name")
+
+    @property
+    def current_price(self):
+        if self.discounted_price and self.discounted_price > 0:
+            return self.discounted_price
+        return self.price
+
+    def sync_product(self):
+        """Keep the parent product's headline price and total stock in step
+        with its types: the product shows the cheapest active type's price."""
+        active = [t for t in self.product.types.all() if t.is_active]
+        fields = {"stock_quantity": sum(t.stock_quantity for t in active)}
+        if active:
+            cheapest = min(active, key=lambda t: t.current_price)
+            fields["price"] = cheapest.price
+            fields["discounted_price"] = cheapest.discounted_price
+        Product.objects.filter(pk=self.product_id).update(**fields)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.sync_product()
+
+    def delete(self, *args, **kwargs):
+        product = self.product
+        super().delete(*args, **kwargs)
+        remaining = product.types.first()
+        if remaining:
+            remaining.sync_product()
+        else:
+            Product.objects.filter(pk=product.pk).update(stock_quantity=0)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.name}"
+
+
 class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product,
@@ -506,7 +565,20 @@ class CartItem(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
+    product_type = models.ForeignKey(
+        ProductType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
     quantity = models.PositiveIntegerField(default=1)
+
+    @property
+    def unit_price(self):
+        """Price of the chosen type, or the product price when it has none."""
+        if self.product_type_id:
+            return self.product_type.current_price
+        return self.product.current_price
 
     def __str__(self):
         return self.product.name
@@ -662,6 +734,7 @@ class OrderItem(models.Model):
         on_delete=models.CASCADE,
     )
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product_type_name = models.CharField(max_length=100, blank=True)
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
 

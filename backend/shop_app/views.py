@@ -52,6 +52,7 @@ from .models import (
     ProductMedia,
     ProductQuestion,
     ProductReview,
+    ProductType,
     ProductVariant,
     RecentlyViewed,
     Shipment,
@@ -780,12 +781,16 @@ def verify_paystack_payment(request, reference):
 
         # Process Cart Items
         for item in cart.items.select_related(
-            "product"
+            "product", "product_type"
         ).all():
 
             product = item.product
+            ptype = item.product_type
+            available = (
+                ptype.stock_quantity if ptype else product.stock_quantity
+            )
 
-            if product.stock_quantity < item.quantity:
+            if available < item.quantity:
                 return Response(
                     {
                         "success": False,
@@ -798,13 +803,18 @@ def verify_paystack_payment(request, reference):
             OrderItem.objects.create(
                 order=order,
                 product=product,
+                product_type_name=ptype.name if ptype else "",
                 quantity=item.quantity,
-                unit_price=product.current_price
+                unit_price=item.unit_price
             )
 
-            # Deduct Stock
-            product.stock_quantity -= item.quantity
-            product.save()
+            # Deduct Stock (a type's save() re-syncs the product total)
+            if ptype:
+                ptype.stock_quantity -= item.quantity
+                ptype.save()
+            else:
+                product.stock_quantity -= item.quantity
+                product.save()
 
             # Stock Movement Log
             StockMovement.objects.create(
@@ -932,7 +942,7 @@ def initialize_paystack_payment(request):
         # amount = cart.total
 
         amount = sum(
-            item.product.current_price * item.quantity
+            item.unit_price * item.quantity
             for item in cart.items.all()
         )
         print("AMOUNT:", amount)                
@@ -1678,9 +1688,33 @@ def add_item(request):
 
         cart_code = request.data.get("cart_code")
         product_id = request.data.get("product_id")
-        quantity = request.data.get("quantity", 1)
+        quantity = int(request.data.get("quantity", 1) or 1)
+        type_value = request.data.get("product_type")
 
         product = Product.objects.get(id=product_id)
+
+        # Products with types must be bought as one of their types
+        product_type = None
+        active_types = product.types.filter(is_active=True)
+
+        if active_types.exists():
+            if not type_value:
+                return Response(
+                    {"success": False, "detail": "Please select a product type"},
+                    status=400,
+                )
+
+            product_type = (
+                active_types.filter(id=type_value).first()
+                if str(type_value).isdigit()
+                else active_types.filter(name__iexact=str(type_value)).first()
+            )
+
+            if product_type is None:
+                return Response(
+                    {"success": False, "detail": "Invalid product type"},
+                    status=400,
+                )
 
         cart, created = Cart.objects.get_or_create(
             cart_code=cart_code
@@ -1688,14 +1722,31 @@ def add_item(request):
 
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
-            product=product
+            product=product,
+            product_type=product_type,
         )
 
-        if not created:
-            cart_item.quantity += int(quantity)
-        else:
-            cart_item.quantity = int(quantity)
+        new_quantity = quantity if created else cart_item.quantity + quantity
 
+        available = (
+            product_type.stock_quantity
+            if product_type
+            else product.stock_quantity
+        )
+
+        if new_quantity > available:
+            if created:
+                cart_item.delete()
+
+            return Response(
+                {
+                    "success": False,
+                    "detail": f"Only {available} left in stock",
+                },
+                status=400,
+            )
+
+        cart_item.quantity = new_quantity
         cart_item.save()
 
         return Response({
@@ -2314,7 +2365,7 @@ def initiate_payment(request):
             )
 
         amount = sum(
-            Decimal(item.quantity) * item.product.current_price
+            Decimal(item.quantity) * item.unit_price
             for item in cart.items.all()
         )
 
@@ -2614,13 +2665,17 @@ def verify_payment(request, tx_ref):
 
             # Process Cart Items
             for item in transaction.cart.items.select_related(
-                "product"
+                "product", "product_type"
             ):
 
                 product = item.product
+                ptype = item.product_type
+                available = (
+                    ptype.stock_quantity if ptype else product.stock_quantity
+                )
 
                 # Validate stock
-                if product.stock_quantity < item.quantity:
+                if available < item.quantity:
                     raise Exception(
                         f"Insufficient stock for "
                         f"{product.name}"
@@ -2630,13 +2685,18 @@ def verify_payment(request, tx_ref):
                 OrderItem.objects.create(
                     order=order,
                     product=product,
+                    product_type_name=ptype.name if ptype else "",
                     quantity=item.quantity,
-                    unit_price=product.current_price,
+                    unit_price=item.unit_price,
                 )
 
-                # Deduct stock
-                product.stock_quantity -= item.quantity
-                product.save()
+                # Deduct stock (a type's save() re-syncs the product total)
+                if ptype:
+                    ptype.stock_quantity -= item.quantity
+                    ptype.save()
+                else:
+                    product.stock_quantity -= item.quantity
+                    product.save()
 
                 # Record stock movement
                 StockMovement.objects.create(

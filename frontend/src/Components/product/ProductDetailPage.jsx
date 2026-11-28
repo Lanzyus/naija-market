@@ -314,10 +314,18 @@ const ProductDetailPage = () => {
     return null;
   }
 
-  const displayPrice =
-    product.current_price || product.price;
-  const originalPrice =
-    product.price || displayPrice;
+  // Each product type has its own price; use the selected one when chosen.
+  const types = product.types || [];
+  const selectedType = types.find(
+    (t) => t.name === productType
+  );
+
+  const displayPrice = selectedType
+    ? selectedType.current_price
+    : product.current_price || product.price;
+  const originalPrice = selectedType
+    ? selectedType.price
+    : product.price || displayPrice;
 
   const discountPercentage =
     originalPrice > displayPrice
@@ -439,11 +447,27 @@ const ProductDetailPage = () => {
                   Select type
                 </option>
 
-                {product.product_types.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
+                {types.length > 0
+                  ? types.map((type) => (
+                      <option
+                        key={type.id}
+                        value={type.name}
+                        disabled={!type.in_stock}
+                      >
+                        {type.name} — ₦
+                        {Number(
+                          type.current_price
+                        ).toLocaleString()}
+                        {!type.in_stock
+                          ? " (out of stock)"
+                          : ""}
+                      </option>
+                    ))
+                  : product.product_types.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
               </select>
             </div>
           )}

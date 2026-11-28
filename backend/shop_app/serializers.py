@@ -22,6 +22,7 @@ from .models import (
     ProductQuestion,
     ProductReview,
     ProductSpecification,
+    ProductType,
     ProductVariant,
     RecentlyViewed,
     Shipment,
@@ -327,6 +328,28 @@ class ProductMediaSerializer(serializers.ModelSerializer):
 # ==================================================
 # PRODUCT VARIANT
 # ==================================================
+class ProductTypeSerializer(serializers.ModelSerializer):
+    current_price = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    in_stock = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductType
+        fields = [
+            "id",
+            "name",
+            "price",
+            "discounted_price",
+            "current_price",
+            "stock_quantity",
+            "in_stock",
+        ]
+
+    def get_in_stock(self, obj):
+        return obj.stock_quantity > 0
+
+
 class ProductVariantSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -547,7 +570,8 @@ class DetailedProductSerializer(serializers.ModelSerializer):
     review_count = serializers.SerializerMethodField()
     similar_products = serializers.SerializerMethodField()
 
-    product_types = ProductTypesField(required=False)
+    types = serializers.SerializerMethodField()
+    product_types = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -558,6 +582,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "description",
             "short_description",
             "brand",
+            "types",
             "product_types",
             "sku",
             "price",
@@ -583,6 +608,17 @@ class DetailedProductSerializer(serializers.ModelSerializer):
 
     def get_current_price(self, obj):
         return obj.current_price
+
+    def get_types(self, obj):
+        active = [t for t in obj.types.all() if t.is_active]
+        return ProductTypeSerializer(active, many=True).data
+
+    def get_product_types(self, obj):
+        """Type names (kept for older clients). Falls back to the legacy text."""
+        names = [t.name for t in obj.types.all() if t.is_active]
+        if names:
+            return names
+        return [x.strip() for x in (obj.product_types or "").split(",") if x.strip()]
 
     def get_average_rating(self, obj):
         """Average of review ratings, falling back to product.rating."""
@@ -617,6 +653,8 @@ class DetailedProductSerializer(serializers.ModelSerializer):
 class CartItemSerializer(serializers.ModelSerializer):
 
     product = ProductSerializer(read_only=True)
+    product_type = serializers.SerializerMethodField()
+    unit_price = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
 
     class Meta:
@@ -624,12 +662,20 @@ class CartItemSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "product",
+            "product_type",
+            "unit_price",
             "quantity",
             "total",
         ]
 
+    def get_product_type(self, obj):
+        return obj.product_type.name if obj.product_type_id else None
+
+    def get_unit_price(self, obj):
+        return float(obj.unit_price)
+
     def get_total(self, obj):
-        return float(obj.product.current_price * obj.quantity)
+        return float(obj.unit_price * obj.quantity)
 
 
 # ==================================================
@@ -661,7 +707,7 @@ class CartSerializer(serializers.ModelSerializer):
         total = Decimal("0.00")
 
         for item in obj.items.all():
-            total += item.product.current_price * item.quantity
+            total += item.unit_price * item.quantity
 
         return float(total)
 
@@ -734,6 +780,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "shop_name",
             "seller_username",
             # Order item
+            "product_type_name",
             "quantity",
             "unit_price",
             "total_price",

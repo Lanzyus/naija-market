@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, Cart, CartItem
+from .models import Product, ProductType, Cart, CartItem
 from .models import ProductMedia
 from .models import *
 from .models import (
@@ -26,7 +26,34 @@ class BannerAdmin(admin.ModelAdmin):
 
 # Register your models here.
 
-admin.site.register(Product)
+
+
+class ProductTypeInline(admin.TabularInline):
+    """Add each type (e.g. 35cl, 50cl, 1 Litre) with its own price and stock."""
+
+    model = ProductType
+    extra = 1
+    fields = (
+        "name",
+        "price",
+        "discounted_price",
+        "cost_price",
+        "stock_quantity",
+        "sku",
+        "is_active",
+    )
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    inlines = [ProductTypeInline]
+    # Types now live in the table below; the old comma-separated text is hidden.
+    exclude = ("product_types",)
+    list_display = ("name", "category", "price", "stock_quantity", "is_active")
+    search_fields = ("name", "sku")
+
+
+admin.site.register(ProductType)
 admin.site.register(ProductMedia)
 admin.site.register(ProductVariant)
 admin.site.register(ProductReview)
